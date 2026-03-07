@@ -1,14 +1,15 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "version": "1.0.0",
-    "title": "GARZA Tools API"
+    "version": "2.0.0",
+    "title": "GARZA Tools — Unified MCP Gateway",
+    "description": "The single, secure entry point for all GARZA OS services, tools, and automations. Every route is exposed as an MCP tool for AI agent consumption."
   },
   "paths": {
     "/mcp": {
       "post": {
-        "summary": "MCP Server",
-        "description": "Model Context Protocol server endpoint. AI agents connect here to discover and invoke GARZA Tools as MCP tools.",
+        "summary": "GARZA OS MCP Server",
+        "description": "Model Context Protocol server endpoint. AI agents connect here to discover and invoke all GARZA OS tools.",
         "operationId": "mcp-server",
         "x-zuplo-route": {
           "corsPolicy": "none",
@@ -17,298 +18,780 @@
             "module": "$import(@zuplo/runtime)",
             "options": {
               "name": "garza-tools",
-              "version": "1.0.0",
+              "version": "2.0.0",
               "operations": [
-                {
-                  "file": "./config/routes.oas.json",
-                  "id": "get-all-todos"
-                },
-                {
-                  "file": "./config/routes.oas.json",
-                  "id": "create-todo"
-                },
-                {
-                  "file": "./config/routes.oas.json",
-                  "id": "update-todo"
-                },
-                {
-                  "file": "./config/routes.oas.json",
-                  "id": "delete-todo"
-                }
+                { "file": "./config/routes.oas.json", "id": "zuplo-who-am-i" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-list-buckets" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-list-consumers" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-create-consumer" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-delete-consumer" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-list-keys" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-create-key" },
+                { "file": "./config/routes.oas.json", "id": "zuplo-delete-key" },
+                { "file": "./config/routes.oas.json", "id": "n8n-trigger-workflow" },
+                { "file": "./config/routes.oas.json", "id": "n8n-list-workflows" },
+                { "file": "./config/routes.oas.json", "id": "n8n-get-executions" },
+                { "file": "./config/routes.oas.json", "id": "garza-memory-store" },
+                { "file": "./config/routes.oas.json", "id": "garza-memory-recall" },
+                { "file": "./config/routes.oas.json", "id": "nomad-subscriber-lookup" },
+                { "file": "./config/routes.oas.json", "id": "nomad-financial-summary" },
+                { "file": "./config/routes.oas.json", "id": "garza-pulse-brief" },
+                { "file": "./config/routes.oas.json", "id": "send-telegram-alert" },
+                { "file": "./config/routes.oas.json", "id": "garza-os-status" },
+                { "file": "./config/routes.oas.json", "id": "garza-daily-brief" },
+                { "file": "./config/routes.oas.json", "id": "nomad-onboard-customer" }
               ]
             }
+          },
+          "policies": {
+            "inbound": ["api-key-inbound", "rate-limit-inbound"]
           }
         },
         "responses": {
-          "200": {
-            "description": "MCP JSON-RPC response"
-          }
+          "200": { "description": "MCP JSON-RPC response" },
+          "401": { "description": "Unauthorized — invalid or missing API key" },
+          "429": { "description": "Rate limit exceeded" }
         },
         "tags": ["MCP"]
       }
     },
-    "/todos": {
+
+    "/zuplo/who-am-i": {
       "get": {
-        "summary": "Get all todos",
-        "description": "Retrieves a complete list of all todo items from the system. Returns all todos regardless of completion status or owner.",
-        "responses": {
-          "200": {
-            "description": "A list of todos",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Todo"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "operationId": "get-all-todos",
+        "summary": "Zuplo — Who Am I",
+        "description": "Returns the authenticated Zuplo account identity and active project context.",
+        "operationId": "zuplo-who-am-i",
         "x-zuplo-route": {
           "corsPolicy": "none",
           "handler": {
             "export": "urlForwardHandler",
             "module": "$import(@zuplo/runtime)",
-            "options": {
-              "baseUrl": "https://todo.zuplo.io"
-            }
+            "options": { "baseUrl": "https://dev.zuplo.com/v1/who-am-i" }
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"],
+            "outbound": []
           },
           "mcp": {
             "type": "tool",
-            "name": "get_all_todos",
-            "description": "Retrieves a complete list of all todo items. Use this to see all tasks in the system.",
-            "annotations": {
-              "readOnlyHint": true
-            }
-          }
-        },
-        "tags": ["Todo"]
-      },
-      "post": {
-        "summary": "Create a new todo",
-        "description": "Creates a new todo item with the provided details. The todo will be assigned a unique ID automatically.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateTodo"
-              }
-            }
+            "name": "zuplo_who_am_i",
+            "description": "Returns the authenticated Zuplo account identity. Use to confirm which Zuplo account is active.",
+            "annotations": { "readOnlyHint": true }
           }
         },
         "responses": {
-          "201": {
-            "description": "Todo created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Todo"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request body"
-          }
+          "200": { "description": "Account identity" }
         },
-        "operationId": "create-todo",
-        "x-zuplo-route": {
-          "corsPolicy": "none",
-          "handler": {
-            "export": "urlForwardHandler",
-            "module": "$import(@zuplo/runtime)",
-            "options": {
-              "baseUrl": "https://todo.zuplo.io"
-            }
-          },
-          "mcp": {
-            "type": "tool",
-            "name": "create_todo",
-            "description": "Creates a new todo item. Provide a title and userId; completed defaults to false.",
-            "annotations": {
-              "destructiveHint": false,
-              "idempotentHint": false
-            }
-          }
-        },
-        "tags": ["Todo"]
+        "tags": ["Zuplo API"]
       }
     },
-    "/todos/{id}": {
-      "put": {
-        "summary": "Update a todo",
-        "description": "Updates an existing todo item by its unique identifier. You can modify title, completion status, and user assignment.",
+
+    "/zuplo/buckets": {
+      "get": {
+        "summary": "Zuplo — List API Key Buckets",
+        "description": "Lists all API key buckets in the Zuplo account.",
+        "operationId": "zuplo-list-buckets",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "zuplo_list_buckets",
+            "description": "Lists all API key buckets in the Zuplo account. Returns bucket names and IDs.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "List of API key buckets" }
+        },
+        "tags": ["Zuplo API"]
+      }
+    },
+
+    "/zuplo/consumers": {
+      "get": {
+        "summary": "Zuplo — List API Key Consumers",
+        "description": "Lists all API key consumers in the default bucket.",
+        "operationId": "zuplo-list-consumers",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "description": "The numeric todo ID to update"
-            },
-            "description": "The todo ID"
+            "name": "bucketName",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "description": "The API key bucket name. Defaults to the project's default bucket." }
           }
         ],
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "zuplo_list_consumers",
+            "description": "Lists all API key consumers (users/clients) in a Zuplo key bucket. Returns consumer names, subjects, and metadata.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "List of consumers" }
+        },
+        "tags": ["Zuplo API"]
+      },
+      "post": {
+        "summary": "Zuplo — Create API Key Consumer",
+        "description": "Creates a new API key consumer in the specified bucket.",
+        "operationId": "zuplo-create-consumer",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateTodo"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Todo updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Todo"
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "description": "Unique name for the consumer (e.g., 'garza-os-agent')" },
+                  "description": { "type": "string", "description": "Human-readable description of this consumer" },
+                  "bucketName": { "type": "string", "description": "The API key bucket name. Defaults to the project's default bucket." },
+                  "metadata": { "type": "object", "description": "Arbitrary metadata to attach to the consumer" }
                 }
               }
             }
-          },
-          "400": {
-            "description": "Invalid request body"
-          },
-          "404": {
-            "description": "Todo not found"
           }
         },
-        "operationId": "update-todo",
         "x-zuplo-route": {
           "corsPolicy": "none",
           "handler": {
-            "export": "urlForwardHandler",
-            "module": "$import(@zuplo/runtime)",
-            "options": {
-              "baseUrl": "https://todo.zuplo.io"
-            }
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
           },
           "mcp": {
             "type": "tool",
-            "name": "update_todo",
-            "description": "Updates an existing todo item by ID. Can change title, completed status, or userId.",
-            "annotations": {
-              "idempotentHint": true
-            }
+            "name": "zuplo_create_consumer",
+            "description": "Creates a new API key consumer in Zuplo. Use to provision access for a new agent, user, or application.",
+            "annotations": { "destructiveHint": false, "idempotentHint": false }
           }
         },
-        "tags": ["Todo"]
-      },
+        "responses": {
+          "201": { "description": "Consumer created" }
+        },
+        "tags": ["Zuplo API"]
+      }
+    },
+
+    "/zuplo/consumers/{consumerName}": {
       "delete": {
-        "summary": "Delete a todo",
-        "description": "Permanently removes a todo item from the system using its unique identifier. This operation cannot be undone.",
+        "summary": "Zuplo — Delete API Key Consumer",
+        "description": "Permanently deletes an API key consumer and all their keys.",
+        "operationId": "zuplo-delete-consumer",
         "parameters": [
           {
-            "name": "id",
+            "name": "consumerName",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "integer",
-              "description": "The numeric todo ID to delete"
-            },
-            "description": "The todo ID"
+            "schema": { "type": "string", "description": "The consumer name to delete" }
           }
         ],
-        "responses": {
-          "204": {
-            "description": "Todo deleted successfully"
-          },
-          "404": {
-            "description": "Todo not found"
-          }
-        },
-        "operationId": "delete-todo",
         "x-zuplo-route": {
           "corsPolicy": "none",
           "handler": {
-            "export": "urlForwardHandler",
-            "module": "$import(@zuplo/runtime)",
-            "options": {
-              "baseUrl": "https://todo.zuplo.io"
-            }
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
           },
           "mcp": {
             "type": "tool",
-            "name": "delete_todo",
-            "description": "Permanently deletes a todo item by ID. This cannot be undone.",
-            "annotations": {
-              "destructiveHint": true,
-              "idempotentHint": true
+            "name": "zuplo_delete_consumer",
+            "description": "Permanently deletes an API key consumer and all their associated keys. This cannot be undone.",
+            "annotations": { "destructiveHint": true, "idempotentHint": true }
+          }
+        },
+        "responses": {
+          "204": { "description": "Consumer deleted" }
+        },
+        "tags": ["Zuplo API"]
+      }
+    },
+
+    "/zuplo/consumers/{consumerName}/keys": {
+      "get": {
+        "summary": "Zuplo — List Consumer API Keys",
+        "description": "Lists all API keys for a specific consumer.",
+        "operationId": "zuplo-list-keys",
+        "parameters": [
+          {
+            "name": "consumerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "description": "The consumer name" }
+          }
+        ],
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "zuplo_list_keys",
+            "description": "Lists all API keys for a specific Zuplo consumer. Returns key IDs and metadata.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "List of API keys" }
+        },
+        "tags": ["Zuplo API"]
+      },
+      "post": {
+        "summary": "Zuplo — Create API Key",
+        "description": "Creates a new API key for a consumer.",
+        "operationId": "zuplo-create-key",
+        "parameters": [
+          {
+            "name": "consumerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "description": "The consumer name to create a key for" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string", "description": "Optional description for this key" },
+                  "expiresOn": { "type": "string", "format": "date-time", "description": "Optional expiration date for the key" }
+                }
+              }
             }
           }
         },
-        "tags": ["Todo"]
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "zuplo_create_key",
+            "description": "Creates a new API key for a Zuplo consumer. Returns the new key value — save it securely as it won't be shown again.",
+            "annotations": { "destructiveHint": false, "idempotentHint": false }
+          }
+        },
+        "responses": {
+          "201": { "description": "API key created" }
+        },
+        "tags": ["Zuplo API"]
       }
-    }
-  },
-  "components": {
-    "schemas": {
-      "Todo": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "description": "The unique todo ID"
+    },
+
+    "/zuplo/consumers/{consumerName}/keys/{keyId}": {
+      "delete": {
+        "summary": "Zuplo — Delete API Key",
+        "description": "Permanently deletes a specific API key.",
+        "operationId": "zuplo-delete-key",
+        "parameters": [
+          {
+            "name": "consumerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "description": "The consumer name" }
           },
-          "title": {
-            "type": "string",
-            "description": "The todo title or task description"
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "description": "The API key ID to delete" }
+          }
+        ],
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
           },
-          "completed": {
-            "type": "boolean",
-            "description": "Whether the todo has been completed"
+          "policies": {
+            "inbound": ["api-key-inbound"]
           },
-          "userId": {
-            "type": "integer",
-            "description": "The ID of the user who owns this todo"
+          "mcp": {
+            "type": "tool",
+            "name": "zuplo_delete_key",
+            "description": "Permanently deletes a specific API key. The key will immediately stop working.",
+            "annotations": { "destructiveHint": true, "idempotentHint": true }
           }
         },
-        "required": ["id", "title", "completed", "userId"]
-      },
-      "CreateTodo": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "The todo title or task description"
-          },
-          "completed": {
-            "type": "boolean",
-            "description": "Whether the todo is already completed",
-            "default": false
-          },
-          "userId": {
-            "type": "integer",
-            "description": "The ID of the user who owns this todo"
+        "responses": {
+          "204": { "description": "Key deleted" }
+        },
+        "tags": ["Zuplo API"]
+      }
+    },
+
+    "/n8n/trigger": {
+      "post": {
+        "summary": "n8n — Trigger Workflow",
+        "description": "Triggers an n8n automation workflow by ID with optional payload data.",
+        "operationId": "n8n-trigger-workflow",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["workflowId"],
+                "properties": {
+                  "workflowId": { "type": "string", "description": "The n8n workflow ID to trigger (e.g., '7Yi5SCaKznY2U4oF')" },
+                  "payload": { "type": "object", "description": "Optional data payload to pass to the workflow" }
+                }
+              }
+            }
           }
         },
-        "required": ["title", "userId"]
-      },
-      "UpdateTodo": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "Updated todo title or task description"
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/n8n-handler)"
           },
-          "completed": {
-            "type": "boolean",
-            "description": "Updated completion status"
+          "policies": {
+            "inbound": ["api-key-inbound", "rate-limit-inbound"]
           },
-          "userId": {
-            "type": "integer",
-            "description": "Updated user ID"
+          "mcp": {
+            "type": "tool",
+            "name": "n8n_trigger_workflow",
+            "description": "Triggers any n8n automation workflow by ID. Use to run automations like sending alerts, processing data, onboarding customers, or any GARZA OS workflow.",
+            "annotations": { "destructiveHint": false, "idempotentHint": false }
           }
-        }
+        },
+        "responses": {
+          "200": { "description": "Workflow triggered successfully" }
+        },
+        "tags": ["n8n Automation"]
+      }
+    },
+
+    "/n8n/workflows": {
+      "get": {
+        "summary": "n8n — List Active Workflows",
+        "description": "Returns a list of all active n8n automation workflows in GARZA OS.",
+        "operationId": "n8n-list-workflows",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/n8n-handler)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "n8n_list_workflows",
+            "description": "Lists all active n8n automation workflows in GARZA OS. Returns workflow IDs, names, and status. Use to discover what automations are available to trigger.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "List of active workflows" }
+        },
+        "tags": ["n8n Automation"]
+      }
+    },
+
+    "/n8n/executions": {
+      "get": {
+        "summary": "n8n — Get Recent Executions",
+        "description": "Returns recent workflow execution history for monitoring and debugging.",
+        "operationId": "n8n-get-executions",
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "description": "Filter executions by workflow ID" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 20, "description": "Number of executions to return (max 100)" }
+          }
+        ],
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/n8n-handler)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "n8n_get_executions",
+            "description": "Returns recent n8n workflow execution history. Use to check if automations ran successfully, debug failures, or monitor GARZA OS automation health.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Recent execution history" }
+        },
+        "tags": ["n8n Automation"]
+      }
+    },
+
+    "/garza/memory/store": {
+      "post": {
+        "summary": "GARZA Memory — Store",
+        "description": "Stores a memory or knowledge item in the GARZA OS memory service.",
+        "operationId": "garza-memory-store",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["key", "value"],
+                "properties": {
+                  "key": { "type": "string", "description": "Unique identifier for this memory (e.g., 'nomad/churn-rate-q1-2026')" },
+                  "value": { "type": "string", "description": "The content to store" },
+                  "tags": { "type": "array", "items": { "type": "string" }, "description": "Optional tags for categorization and retrieval" },
+                  "ttlDays": { "type": "integer", "description": "Optional time-to-live in days. Omit for permanent storage." }
+                }
+              }
+            }
+          }
+        },
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-memory)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "garza_memory_store",
+            "description": "Stores a memory or knowledge item in GARZA OS persistent memory. Use to save important information, decisions, or context for future retrieval by agents.",
+            "annotations": { "destructiveHint": false, "idempotentHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Memory stored successfully" }
+        },
+        "tags": ["GARZA Memory"]
+      }
+    },
+
+    "/garza/memory/recall": {
+      "post": {
+        "summary": "GARZA Memory — Recall",
+        "description": "Retrieves memories from the GARZA OS memory service by key or semantic search.",
+        "operationId": "garza-memory-recall",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": { "type": "string", "description": "Exact key to retrieve a specific memory" },
+                  "query": { "type": "string", "description": "Natural language query for semantic memory search" },
+                  "tags": { "type": "array", "items": { "type": "string" }, "description": "Filter by tags" },
+                  "limit": { "type": "integer", "default": 10, "description": "Maximum number of results to return" }
+                }
+              }
+            }
+          }
+        },
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-memory)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "garza_memory_recall",
+            "description": "Retrieves memories from GARZA OS persistent memory. Search by exact key or natural language query. Use to recall past decisions, context, or stored knowledge.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Retrieved memories" }
+        },
+        "tags": ["GARZA Memory"]
+      }
+    },
+
+    "/nomad/subscriber/{subscriberId}": {
+      "get": {
+        "summary": "Nomad — Subscriber Lookup",
+        "description": "Looks up a Nomad Internet subscriber by their subscriber ID.",
+        "operationId": "nomad-subscriber-lookup",
+        "parameters": [
+          {
+            "name": "subscriberId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "description": "The Nomad Internet subscriber ID or account number" }
+          }
+        ],
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/nomad-handler)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "nomad_subscriber_lookup",
+            "description": "Looks up a Nomad Internet subscriber by ID. Returns account status, plan, billing info, and device details.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Subscriber details" }
+        },
+        "tags": ["Nomad Internet"]
+      }
+    },
+
+    "/nomad/financial/summary": {
+      "get": {
+        "summary": "Nomad — Financial Summary",
+        "description": "Returns a real-time financial summary for Nomad Internet including MRR, churn rate, and key metrics.",
+        "operationId": "nomad-financial-summary",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/nomad-handler)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "nomad_financial_summary",
+            "description": "Returns Nomad Internet's real-time financial summary: MRR, ARR, churn rate, subscriber count, and key business metrics. Use for executive briefings or financial analysis.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Financial summary" }
+        },
+        "tags": ["Nomad Internet"]
+      }
+    },
+
+    "/garza/pulse": {
+      "get": {
+        "summary": "GARZA Pulse — Daily Intelligence Brief",
+        "description": "Triggers or retrieves the latest GARZA OS daily intelligence brief.",
+        "operationId": "garza-pulse-brief",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-pulse)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "garza_pulse_brief",
+            "description": "Retrieves the latest GARZA OS daily intelligence brief. Contains Nomad Internet KPIs, active alerts, task priorities, and executive summary for Jaden.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Daily intelligence brief" }
+        },
+        "tags": ["GARZA OS"]
+      }
+    },
+
+    "/garza/alert": {
+      "post": {
+        "summary": "GARZA — Send Alert",
+        "description": "Sends an alert or notification via Telegram to Jaden.",
+        "operationId": "send-telegram-alert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["message"],
+                "properties": {
+                  "message": { "type": "string", "description": "The alert message to send to Jaden" },
+                  "priority": { "type": "string", "enum": ["low", "normal", "high", "critical"], "default": "normal", "description": "Alert priority level" },
+                  "category": { "type": "string", "description": "Alert category (e.g., 'nomad', 'security', 'financial', 'ops')" }
+                }
+              }
+            }
+          }
+        },
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-alert)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound", "rate-limit-burst-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "send_telegram_alert",
+            "description": "Sends an alert or notification to Jaden via Telegram. Use for important updates, action required items, or critical system events. Include priority level.",
+            "annotations": { "destructiveHint": false, "idempotentHint": false }
+          }
+        },
+        "responses": {
+          "200": { "description": "Alert sent" }
+        },
+        "tags": ["GARZA OS"]
+      }
+    },
+
+    "/garza/brief": {
+      "get": {
+        "summary": "GARZA OS — Daily Intelligence Brief",
+        "description": "Aggregates data from all GARZA OS services into a single morning intelligence brief: n8n health, Zuplo status, service checks, and active alerts.",
+        "operationId": "garza-daily-brief",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-daily-brief)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "garza_daily_brief",
+            "description": "Returns a comprehensive GARZA OS morning intelligence brief. Aggregates n8n automation health, Zuplo API status, service health checks, and active alerts in one call. Use at the start of each day or when you need a full system overview.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "Daily intelligence brief" }
+        },
+        "tags": ["GARZA OS"]
+      }
+    },
+
+    "/nomad/onboard": {
+      "post": {
+        "summary": "Nomad — Onboard New Customer",
+        "description": "Orchestrates the complete Nomad Internet customer onboarding workflow in a single call.",
+        "operationId": "nomad-onboard-customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customerName", "email", "plan"],
+                "properties": {
+                  "customerName": { "type": "string", "description": "Full name of the new customer" },
+                  "email": { "type": "string", "format": "email", "description": "Customer email address" },
+                  "phone": { "type": "string", "description": "Customer phone number" },
+                  "plan": { "type": "string", "description": "Nomad Internet plan name (e.g., 'Nomad 50', 'Nomad 100', 'Nomad Unlimited')" },
+                  "deviceIccid": { "type": "string", "description": "Optional device ICCID for SIM provisioning" },
+                  "address": { "type": "string", "description": "Customer service address" },
+                  "notes": { "type": "string", "description": "Any additional notes for the onboarding team" }
+                }
+              }
+            }
+          }
+        },
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/nomad-onboard)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound", "rate-limit-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "nomad_onboard_customer",
+            "description": "Orchestrates the complete Nomad Internet customer onboarding workflow: validates data, triggers n8n onboarding automation, provisions the device, and sends a confirmation alert to Jaden. Use when a new customer needs to be set up.",
+            "annotations": { "destructiveHint": false, "idempotentHint": false }
+          }
+        },
+        "responses": {
+          "200": { "description": "Onboarding result" }
+        },
+        "tags": ["Nomad Internet"]
+      }
+    },
+
+    "/garza/status": {
+      "get": {
+        "summary": "GARZA OS — System Status",
+        "description": "Returns a comprehensive health and status report for all GARZA OS services.",
+        "operationId": "garza-os-status",
+        "x-zuplo-route": {
+          "corsPolicy": "none",
+          "handler": {
+            "export": "default",
+            "module": "$import(./modules/garza-status)"
+          },
+          "policies": {
+            "inbound": ["api-key-inbound"]
+          },
+          "mcp": {
+            "type": "tool",
+            "name": "garza_os_status",
+            "description": "Returns a comprehensive health and status report for all GARZA OS services including n8n, Zuplo, Vercel deployments, and key automations. Use to diagnose issues or get a system overview.",
+            "annotations": { "readOnlyHint": true }
+          }
+        },
+        "responses": {
+          "200": { "description": "System status report" }
+        },
+        "tags": ["GARZA OS"]
       }
     }
   }

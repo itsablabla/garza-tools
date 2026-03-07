@@ -1,13 +1,42 @@
 {
   "policies": [
     {
+      "name": "api-key-inbound",
+      "policyType": "api-key-inbound",
       "handler": {
-        "export": "MockApiInboundPolicy",
+        "export": "ApiKeyInboundPolicy",
         "module": "$import(@zuplo/runtime)",
-        "options": {}
-      },
-      "name": "mock-api-inbound",
-      "policyType": "mock-api-inbound"
+        "options": {
+          "allowUnauthenticatedRequests": false,
+          "cacheTtlSeconds": 60
+        }
+      }
+    },
+    {
+      "name": "rate-limit-inbound",
+      "policyType": "rate-limit-inbound",
+      "handler": {
+        "export": "RateLimitInboundPolicy",
+        "module": "$import(@zuplo/runtime)",
+        "options": {
+          "rateLimitBy": "user",
+          "requestsAllowed": 300,
+          "timeWindowMinutes": 1
+        }
+      }
+    },
+    {
+      "name": "rate-limit-burst-inbound",
+      "policyType": "rate-limit-inbound",
+      "handler": {
+        "export": "RateLimitInboundPolicy",
+        "module": "$import(@zuplo/runtime)",
+        "options": {
+          "rateLimitBy": "user",
+          "requestsAllowed": 30,
+          "timeWindowMinutes": 0.1
+        }
+      }
     }
   ]
 }
