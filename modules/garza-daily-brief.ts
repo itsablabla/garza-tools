@@ -1,26 +1,35 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
-/**
- * GARZA OS Daily Brief — Composite Orchestration Tool
- *
- * Aggregates data from multiple GARZA OS services in a single call:
- * - n8n: Recent workflow execution health
- * - Zuplo: API gateway status and consumer count
- * - System: All service health checks
- *
- * This is a high-value MCP tool that gives Jaden a complete morning
- * intelligence brief in one tool call.
- */
+interface ServiceCheck {
+  name: string;
+  ok: boolean;
+  latencyMs?: number;
+}
+
+async function checkService(name: string, url: string): Promise<ServiceCheck> {
+  const start = Date.now();
+  try {
+    const resp = await fetch(url);
+    return { name, ok: resp.ok, latencyMs: Date.now() - start };
+  } catch {
+    return { name, ok: false, latencyMs: Date.now() - start };
+  }
+}
+
 export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const n8nUrl = context.variables.get("N8N_INSTANCE_URL") as string;
-  const n8nKey = context.variables.get("N8N_API_KEY") as string;
-  const zuploKey = context.variables.get("ZUPLO_API_KEY") as string;
+  const n8nUrl = environment.N8N_INSTANCE_URL;
+  const n8nKey = environment.N8N_API_KEY;
+  const zuploKey = environment.ZUPLO_API_KEY;
 
   const timestamp = new Date().toISOString();
-  const results: Record<string, unknown> = { timestamp, source: "garza-tools-v2" };
+  const results: Record<string, unknown> = {
+    timestamp,
+    source: "garza-tools-v2",
+    environment: environment.ZUPLO_ENVIRONMENT_STAGE || "unknown",
+  };
 
   // 1. n8n Automation Health
   if (n8nUrl && n8nKey) {
@@ -34,34 +43,38 @@ export default async function (
         }),
       ]);
 
+      const n8nResult: Record<string, unknown> = { status: "healthy" };
+
       if (workflowsResp.ok) {
         const wfData = await workflowsResp.json() as { data: unknown[] };
-        results.n8n = {
-          status: "healthy",
-          activeWorkflows: wfData.data?.length || 0,
-        };
+        n8nResult.activeWorkflows = wfData.data?.length || 0;
       }
 
       if (execResp.ok) {
-        const execData = await execResp.json() as { data: Array<{ status: string; startedAt: string }> };
+        const execData = await execResp.json() as {
+          data: Array<{ status: string; startedAt: string }>;
+        };
         const execs = execData.data || [];
-        const failed = execs.filter((e) => e.status === "error").length;
-        const succeeded = execs.filter((e) => e.status === "success").length;
-        (results.n8n as Record<string, unknown>).recentExecutions = {
+        n8nResult.recentExecutions = {
           total: execs.length,
-          succeeded,
-          failed,
+          succeeded: execs.filter((e) => e.status === "success").length,
+          failed: execs.filter((e) => e.status === "error").length,
           lastRun: execs[0]?.startedAt || null,
         };
       }
-    } catch {
-      results.n8n = { status: "unreachable" };
+
+      results.n8n = n8nResult;
+    } catch (err) {
+      results.n8n = {
+        status: "unreachable",
+        error: err instanceof Error ? err.message : "Unknown",
+      };
     }
   } else {
     results.n8n = { status: "not_configured" };
   }
 
-  // 2. Zuplo API Key Consumer Count
+  // 2. Zuplo API Key Service
   if (zuploKey) {
     try {
       const resp = await fetch(
@@ -74,42 +87,37 @@ export default async function (
           status: "healthy",
           buckets: data.data?.length || 0,
         };
+      } else {
+        results.zuplo = { status: "degraded", httpStatus: resp.status };
       }
     } catch {
       results.zuplo = { status: "unreachable" };
     }
+  } else {
+    results.zuplo = { status: "not_configured" };
   }
 
   // 3. Service Health Spot-Check
-  const serviceChecks = await Promise.allSettled([
-    fetch("https://zuplo-mcp.vercel.app/health").then((r) => ({
-      name: "zuplo-mcp",
-      ok: r.ok,
-    })),
-    fetch("https://garza-mcp-router.vercel.app").then((r) => ({
-      name: "garza-mcp-router",
-      ok: r.ok,
-    })),
+  const serviceChecks = await Promise.all([
+    checkService("zuplo-mcp", "https://zuplo-mcp.vercel.app/health"),
+    checkService("garza-mcp-router", "https://garza-mcp-router.vercel.app"),
   ]);
-
-  results.services = serviceChecks.map((r) => {
-    if (r.status === "fulfilled") return r.value;
-    return { name: "unknown", ok: false };
-  });
+  results.services = serviceChecks;
 
   // 4. Summary
   const n8nHealthy = (results.n8n as Record<string, unknown>)?.status === "healthy";
   const zuploHealthy = (results.zuplo as Record<string, unknown>)?.status === "healthy";
-  const servicesHealthy = (results.services as Array<{ ok: boolean }>).every((s) => s.ok);
+  const allServicesOk = serviceChecks.every((s) => s.ok);
+
+  const alerts: string[] = [];
+  if (!n8nHealthy) alerts.push("n8n automation is not reachable");
+  if (!zuploHealthy) alerts.push("Zuplo API key service not responding");
+  if (!allServicesOk) alerts.push("One or more downstream services are down");
 
   results.summary = {
-    overall: n8nHealthy && zuploHealthy ? "healthy" : "degraded",
+    overall: alerts.length === 0 ? "healthy" : "degraded",
     readyForDay: n8nHealthy,
-    alerts: [
-      ...(!n8nHealthy ? ["n8n automation is not reachable"] : []),
-      ...(!zuploHealthy ? ["Zuplo API key service not responding"] : []),
-      ...(!servicesHealthy ? ["One or more downstream services are down"] : []),
-    ],
+    alerts,
   };
 
   return new Response(JSON.stringify(results, null, 2), {

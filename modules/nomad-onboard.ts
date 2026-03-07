@@ -1,23 +1,13 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
-/**
- * Nomad Internet — Customer Onboarding Orchestration Tool
- *
- * A high-value composite MCP tool that orchestrates the full Nomad
- * customer onboarding workflow in a single agent call:
- *
- * 1. Validates the customer data
- * 2. Triggers the n8n Nomad Onboarding workflow
- * 3. Creates a Zuplo API key consumer for the customer (if applicable)
- * 4. Sends a confirmation alert to Jaden
- * 5. Returns a full onboarding summary
- */
 export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const n8nUrl = context.variables.get("N8N_INSTANCE_URL") as string;
-  const n8nKey = context.variables.get("N8N_API_KEY") as string;
+  const n8nUrl = environment.N8N_INSTANCE_URL;
+  const n8nKey = environment.N8N_API_KEY;
+  const telegramToken = environment.TELEGRAM_BOT_TOKEN;
+  const telegramChatId = environment.TELEGRAM_CHAT_ID;
 
   const body = await request.json() as {
     customerName: string;
@@ -47,7 +37,11 @@ export default async function (
     steps: [],
   };
 
-  const steps = results.steps as Array<{ step: string; status: string; detail?: string }>;
+  const steps = results.steps as Array<{
+    step: string;
+    status: string;
+    detail?: string;
+  }>;
 
   // Step 1: Validate
   steps.push({ step: "validate", status: "passed" });
@@ -55,26 +49,30 @@ export default async function (
   // Step 2: Trigger n8n Nomad Onboarding workflow
   if (n8nUrl && n8nKey) {
     try {
-      // Try webhook first
       const webhookResp = await fetch(`${n8nUrl}/webhook/nomad-onboarding`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerName, email, plan, deviceIccid, address, notes }),
+        body: JSON.stringify({
+          customerName,
+          email,
+          plan,
+          deviceIccid,
+          address,
+          notes,
+        }),
       });
 
       if (webhookResp.ok) {
-        steps.push({ step: "n8n_onboarding_workflow", status: "triggered", detail: "Webhook accepted" });
-      } else {
-        // Fallback: use execute API
-        const execResp = await fetch(`${n8nUrl}/api/v1/workflows/nomad-onboarding/execute`, {
-          method: "POST",
-          headers: { "X-N8N-API-KEY": n8nKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ data: { customerName, email, plan, deviceIccid, address, notes } }),
-        });
         steps.push({
           step: "n8n_onboarding_workflow",
-          status: execResp.ok ? "triggered" : "failed",
-          detail: execResp.ok ? "Execute API accepted" : `HTTP ${execResp.status}`,
+          status: "triggered",
+          detail: "Webhook accepted",
+        });
+      } else {
+        steps.push({
+          step: "n8n_onboarding_workflow",
+          status: "failed",
+          detail: `HTTP ${webhookResp.status}`,
         });
       }
     } catch (err) {
@@ -85,27 +83,42 @@ export default async function (
       });
     }
   } else {
-    steps.push({ step: "n8n_onboarding_workflow", status: "skipped", detail: "n8n not configured" });
+    steps.push({
+      step: "n8n_onboarding_workflow",
+      status: "skipped",
+      detail: "n8n not configured",
+    });
   }
 
-  // Step 3: Send alert to Jaden
-  try {
-    await context.invokeRoute("/garza/alert", {
-      method: "POST",
-      body: JSON.stringify({
-        message: `New Nomad customer onboarded: *${customerName}* (${email}) on plan *${plan}*.${deviceIccid ? ` Device ICCID: ${deviceIccid}` : ""}`,
-        priority: "normal",
-        category: "nomad",
-      }),
-      headers: { "Content-Type": "application/json" },
-    });
-    steps.push({ step: "send_alert", status: "sent" });
-  } catch {
-    steps.push({ step: "send_alert", status: "skipped" });
+  // Step 3: Send Telegram alert to Jaden
+  if (telegramToken && telegramChatId) {
+    try {
+      const alertMsg = `⚪ *GARZA OS Alert*\n*Priority:* NORMAL\n*Category:* nomad\n\nNew Nomad customer onboarded: *${customerName}* (${email}) on plan *${plan}*.${deviceIccid ? ` Device ICCID: \`${deviceIccid}\`` : ""}`;
+      const telegramUrl = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+      const alertResp = await fetch(telegramUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: telegramChatId,
+          text: alertMsg,
+          parse_mode: "Markdown",
+        }),
+      });
+      steps.push({
+        step: "send_alert",
+        status: alertResp.ok ? "sent" : "failed",
+      });
+    } catch {
+      steps.push({ step: "send_alert", status: "skipped" });
+    }
+  } else {
+    steps.push({ step: "send_alert", status: "skipped", detail: "Telegram not configured" });
   }
 
   // Summary
-  const allPassed = steps.every((s) => s.status !== "failed" && s.status !== "error");
+  const allPassed = steps.every(
+    (s) => s.status !== "failed" && s.status !== "error"
+  );
   results.status = allPassed ? "success" : "partial";
   results.message = allPassed
     ? `Customer ${customerName} onboarded successfully.`

@@ -1,20 +1,23 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
 interface ServiceStatus {
   name: string;
   url: string;
-  status: "healthy" | "degraded" | "down" | "unknown";
+  status: "healthy" | "degraded" | "down";
   latencyMs?: number;
   error?: string;
 }
 
-async function checkService(name: string, url: string, timeoutMs = 5000): Promise<ServiceStatus> {
+async function checkService(
+  name: string,
+  url: string,
+  timeoutMs = 5000
+): Promise<ServiceStatus> {
   const start = Date.now();
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const resp = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     const latencyMs = Date.now() - start;
     return {
       name,
@@ -37,20 +40,28 @@ export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const n8nUrl = context.variables.get("N8N_INSTANCE_URL") as string;
+  const n8nUrl = environment.N8N_INSTANCE_URL;
 
-  const services = [
+  const services: Array<{ name: string; url: string }> = [
     { name: "Zuplo MCP (Vercel)", url: "https://zuplo-mcp.vercel.app/health" },
-    { name: "garza-tools Gateway", url: "https://garza-tools-main-fb2210a.zuplo.app/garza/status" },
-    { name: "Clawhost API", url: "https://clawhost-api-jadens-projects.vercel.app" },
-    { name: "Peta Core", url: "https://peta-core-git-main-jadens-projects.vercel.app" },
+    {
+      name: "garza-tools Gateway",
+      url: "https://garza-tools-main-fb2210a.zuplo.app/health",
+    },
+    {
+      name: "Clawhost API",
+      url: "https://clawhost-api-jadens-projects.vercel.app",
+    },
+    {
+      name: "Peta Core",
+      url: "https://peta-core-git-main-jadens-projects.vercel.app",
+    },
   ];
 
   if (n8nUrl) {
     services.push({ name: "n8n Automation", url: `${n8nUrl}/healthz` });
   }
 
-  // Check all services in parallel
   const results = await Promise.all(
     services.map((s) => checkService(s.name, s.url))
   );

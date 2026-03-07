@@ -1,11 +1,11 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
 export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const n8nUrl = context.variables.get("N8N_INSTANCE_URL") as string;
-  const n8nKey = context.variables.get("N8N_API_KEY") as string;
+  const n8nUrl = environment.N8N_INSTANCE_URL;
+  const n8nKey = environment.N8N_API_KEY;
 
   if (!n8nUrl || !n8nKey) {
     return new Response(
@@ -22,7 +22,7 @@ export default async function (
     "Content-Type": "application/json",
   };
 
-  // POST /n8n/trigger — trigger a workflow via webhook
+  // POST /n8n/trigger — trigger a workflow
   if (path === "/n8n/trigger" && request.method === "POST") {
     const body = await request.json() as { workflowId: string; payload?: object };
     const { workflowId, payload } = body;
@@ -34,7 +34,6 @@ export default async function (
       );
     }
 
-    // Use n8n REST API to execute workflow
     const execUrl = `${n8nUrl}/api/v1/workflows/${workflowId}/execute`;
     const resp = await fetch(execUrl, {
       method: "POST",
@@ -55,7 +54,9 @@ export default async function (
       `${n8nUrl}/api/v1/workflows?active=true&limit=100`,
       { headers }
     );
-    const data = await resp.json() as { data: Array<{ id: string; name: string; active: boolean }> };
+    const data = await resp.json() as {
+      data: Array<{ id: string; name: string; active: boolean }>;
+    };
     const workflows = (data.data || []).map((w) => ({
       id: w.id,
       name: w.name,

@@ -1,4 +1,4 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
 const ZUPLO_BASE = "https://dev.zuplo.com/v1";
 const ACCOUNT = "crimson_influential_koala";
@@ -8,7 +8,7 @@ export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const apiKey = context.variables.get("ZUPLO_API_KEY") as string;
+  const apiKey = environment.ZUPLO_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "ZUPLO_API_KEY not configured" }), {
       status: 500,

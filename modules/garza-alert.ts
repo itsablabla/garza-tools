@@ -1,4 +1,4 @@
-import { ZuploContext, ZuploRequest } from "@zuplo/runtime";
+import { ZuploContext, ZuploRequest, environment } from "@zuplo/runtime";
 
 const PRIORITY_EMOJI: Record<string, string> = {
   low: "🔵",
@@ -11,10 +11,9 @@ export default async function (
   request: ZuploRequest,
   context: ZuploContext
 ): Promise<Response> {
-  const telegramToken = context.variables.get("TELEGRAM_BOT_TOKEN") as string;
-  const telegramChatId = context.variables.get("TELEGRAM_CHAT_ID") as string;
-  const n8nUrl = context.variables.get("N8N_INSTANCE_URL") as string;
-  const n8nKey = context.variables.get("N8N_API_KEY") as string;
+  const telegramToken = environment.TELEGRAM_BOT_TOKEN;
+  const telegramChatId = environment.TELEGRAM_CHAT_ID;
+  const n8nUrl = environment.N8N_INSTANCE_URL;
 
   const body = await request.json() as {
     message: string;
@@ -55,8 +54,8 @@ export default async function (
     }
   }
 
-  // Fallback: route through n8n
-  if (n8nUrl && n8nKey) {
+  // Fallback: route through n8n webhook
+  if (n8nUrl) {
     const webhookUrl = `${n8nUrl}/webhook/garza-alert`;
     const resp = await fetch(webhookUrl, {
       method: "POST",
