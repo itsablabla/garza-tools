@@ -64,13 +64,11 @@
         "x-zuplo-route": {
           "corsPolicy": "none",
           "handler": {
-            "export": "urlForwardHandler",
-            "module": "$import(@zuplo/runtime)",
-            "options": { "baseUrl": "https://dev.zuplo.com/v1/who-am-i" }
+            "export": "default",
+            "module": "$import(./modules/zuplo-proxy)"
           },
           "policies": {
-            "inbound": ["api-key-inbound"],
-            "outbound": []
+            "inbound": ["api-key-inbound"]
           },
           "mcp": {
             "type": "tool",
