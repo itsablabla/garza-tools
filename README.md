@@ -1,98 +1,49 @@
-# GARZA Tools — Unified MCP Gateway
+# garza-tools
 
-The single, secure entry point for all GARZA OS services, tools, and automations. Every route is exposed as an MCP tool for AI agent consumption.
+GARZA OS Notion Worker — custom tools and data syncs for Notion agents.
 
-## Live Endpoints
+## Tools
 
-| Environment | URL |
-|---|---|
-| **Production** | `https://garza-tools-main-fb2210a.zuplo.app` |
-| **MCP Endpoint** | `https://garza-tools-main-fb2210a.zuplo.app/mcp` |
-| **Dev Portal** | `https://garza-tools-main-fb2210a.zuplo.site` |
+| Tool | Sprint | Description | API |
+|------|--------|-------------|-----|
+| `healthCheck` | 0 | Ping key endpoints, return UP/DOWN + latency | HTTP HEAD |
+| `tailscaleDevices` | 1 | List all devices on the tailnet | Tailscale |
+| `tailscaleDNS` | 1 | Get DNS nameserver config | Tailscale |
+| `tailscaleDeviceStatus` | 1 | Get detailed status for one device | Tailscale |
+| `githubFetchFile` | 1 | Fetch file contents from a repo | GitHub |
+| `githubRepoInfo` | 1 | Get repo metadata | GitHub |
+| `githubListRepos` | 1 | List repos for an org/user | GitHub |
+| `scrapeURL` | 1 | Fetch and extract text from web page | HTTP |
+| `summarizeText` | 1 | Prepare text for agent summarization | Local |
+| `getCustomerStatus` | 3 | Look up Nomad customer by email | Chargebee |
+| `checkRefundEligibility` | 3 | Check 90-day refund eligibility | Chargebee |
+| `sendSMS` | 3 | Send text message via Twilio | Twilio |
 
-## MCP Config
+## Setup
 
-```json
-{
-  "garza-tools": {
-    "url": "https://garza-tools-main-fb2210a.zuplo.app/mcp",
-    "transport": "http",
-    "headers": {
-      "Authorization": "Bearer <GARZA_OS_API_KEY>"
-    }
-  }
-}
+```bash
+# Install CLI
+npm i -g ntn
+
+# Login
+ntn login
+
+# Set secrets
+ntn workers env set TAILSCALE_API_KEY=...
+ntn workers env set GITHUB_TOKEN=...
+ntn workers env set CHARGEBEE_API_KEY=...
+ntn workers env set CHARGEBEE_SITE=nomad-internet
+ntn workers env set TWILIO_ACCOUNT_SID=...
+ntn workers env set TWILIO_AUTH_TOKEN=...
+ntn workers env set TWILIO_PHONE_NUMBER=...
+
+# Test locally
+ntn workers exec healthCheck --local
+
+# Deploy
+ntn workers deploy
 ```
-
-## GARZA OS API Key
-
-```
-<GARZA_OS_API_KEY>
-```
-
-Consumer: `garza-os-agent` | Bucket: `production`
-
-## 20 MCP Tools
-
-### Zuplo API (7 tools)
-- `zuplo_who_am_i` — Returns authenticated Zuplo account identity
-- `zuplo_list_buckets` — Lists all API key buckets
-- `zuplo_list_consumers` — Lists all API key consumers
-- `zuplo_create_consumer` — Creates a new API key consumer
-- `zuplo_delete_consumer` — Deletes an API key consumer
-- `zuplo_list_keys` — Lists API keys for a consumer
-- `zuplo_create_key` — Creates a new API key
-- `zuplo_delete_key` — Deletes an API key
-
-### n8n Automation (3 tools)
-- `n8n_trigger_workflow` — Triggers an n8n workflow by ID
-- `n8n_list_workflows` — Lists all active n8n workflows
-- `n8n_get_executions` — Gets recent workflow executions
-
-### GARZA Memory (2 tools)
-- `garza_memory_store` — Stores a memory/fact in the GARZA OS knowledge base
-- `garza_memory_recall` — Recalls stored memories/facts
-
-### Nomad Internet (3 tools)
-- `nomad_subscriber_lookup` — Looks up a Nomad subscriber by ID
-- `nomad_financial_summary` — Returns Nomad Internet financial summary
-- `nomad_onboard_customer` — Orchestrates full customer onboarding
-
-### GARZA OS (5 tools)
-- `garza_pulse_brief` — Returns GARZA Pulse latest execution status
-- `send_telegram_alert` — Sends an alert to Jaden via Telegram
-- `garza_os_status` — Health check for all GARZA OS services
-- `garza_daily_brief` — Comprehensive morning intelligence brief
-
-## Required Environment Variables
-
-Set these in the Zuplo portal: **Settings → Environment Variables**
-
-| Variable | Type | Value |
-|---|---|---|
-| `N8N_INSTANCE_URL` | Plain | `https://primary-production-f10f7.up.railway.app` |
-| `N8N_API_KEY` | **Secret** | *(from vault: "n8n API Key (Manus Sandbox)")* |
-| `ZUPLO_API_KEY` | **Secret** | `<ZUPLO_DEVELOPER_API_KEY>` |
-| `TELEGRAM_BOT_TOKEN` | **Secret** | *(from vault: Telegram Bot Token)* |
-| `TELEGRAM_CHAT_ID` | Plain | *(Jaden's Telegram chat ID)* |
-
-## Security
-
-- All routes protected by Zuplo API key authentication
-- Rate limited: 300 req/min sustained, 30 req/10s burst
-- API keys stored as encrypted Zuplo secrets
-- All traffic over HTTPS/TLS
 
 ## Architecture
 
-```
-AI Agent (Manus/Claude/GPT)
-    ↓ MCP Protocol (HTTP)
-garza-tools.zuplo.app/mcp
-    ↓ API Key Auth + Rate Limiting
-    ├── Zuplo API → dev.zuplo.com
-    ├── n8n Automation → railway.app
-    ├── GARZA Memory → n8n webhook
-    ├── Nomad Internet → n8n webhook
-    └── GARZA OS → internal handlers
-```
+Part of GARZA OS — see Notion workspace for full adoption plan and architecture docs.
