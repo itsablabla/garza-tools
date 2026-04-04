@@ -43,6 +43,7 @@ worker.tool("healthCheck", {
             name,
             status: res.ok ? "UP" : `WARN_${res.status}`,
             latency: `${Date.now() - start}ms`,
+            error: "",
           };
         } catch (err) {
           return {
@@ -118,16 +119,17 @@ worker.tool("tailscaleDeviceStatus", {
     const device = data.devices.find(
       (d: any) => d.hostname.toLowerCase() === hostname.toLowerCase()
     );
-    if (!device) return { error: `Device '${hostname}' not found` };
+    if (!device) return { error: `Device '${hostname}' not found`, name: "", os: "", ipv4: "", online: false, lastSeen: "", clientVersion: "", authorized: false, tags: [] as string[] };
     return {
-      name: device.hostname,
-      os: device.os,
-      ipv4: device.addresses?.[0],
-      online: device.online,
-      lastSeen: device.lastSeen,
-      clientVersion: device.clientVersion,
-      authorized: device.authorized,
-      tags: device.tags,
+      error: "",
+      name: device.hostname as string,
+      os: device.os as string,
+      ipv4: (device.addresses?.[0] ?? "") as string,
+      online: device.online as boolean,
+      lastSeen: device.lastSeen as string,
+      clientVersion: device.clientVersion as string,
+      authorized: device.authorized as boolean,
+      tags: (device.tags ?? []) as string[],
     };
   },
 });
@@ -164,9 +166,10 @@ worker.tool("githubFetchFile", {
         path: data.path,
         size: data.size,
         content: Buffer.from(data.content, "base64").toString("utf-8"),
+        download_url: "",
       };
     }
-    return { path: data.path, size: data.size, download_url: data.download_url };
+    return { path: data.path, size: data.size, content: "", download_url: data.download_url };
   },
 });
 
@@ -262,10 +265,10 @@ worker.tool("scrapeURL", {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     const html = await res.text();
     const text = html
-      .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, "")
-      .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, "")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
       .replace(/<[^>]+>/g, " ")
-      .replace(/\\s+/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
     const cap = maxLength ?? 5000;
     return {
@@ -294,7 +297,7 @@ worker.tool("summarizeText", {
   }),
   execute: ({ text, style }) => {
     const s = style ?? "bullets";
-    const wordCount = text.split(/\\s+/).length;
+    const wordCount = text.split(/\s+/).length;
     return {
       inputWordCount: wordCount,
       requestedStyle: s,
@@ -330,7 +333,7 @@ worker.tool("getCustomerStatus", {
     );
     if (!custRes.ok) throw new Error(`Chargebee error: ${custRes.status}`);
     const custData = await custRes.json();
-    if (!custData.list?.length) return { found: false, email };
+    if (!custData.list?.length) return { found: false, email, customer: null, subscriptions: [] as any[], totalSubscriptions: 0 };
 
     const customer = custData.list[0].customer;
 
@@ -352,6 +355,7 @@ worker.tool("getCustomerStatus", {
 
     return {
       found: true,
+      email,
       customer: {
         id: customer.id,
         email: customer.email,
@@ -379,7 +383,7 @@ worker.tool("checkRefundEligibility", {
     );
     if (!custRes.ok) throw new Error(`Chargebee error: ${custRes.status}`);
     const custData = await custRes.json();
-    if (!custData.list?.length) return { eligible: false, reason: "Customer not found", email };
+    if (!custData.list?.length) return { eligible: false, reason: "Customer not found", email, customerId: "", customerSince: "" };
 
     const customer = custData.list[0].customer;
     const ninetyDaysAgo = Math.floor((Date.now() - 90 * 24 * 60 * 60 * 1000) / 1000);
@@ -396,6 +400,7 @@ worker.tool("checkRefundEligibility", {
         reason: `Customer has ${recentRefunds} refund(s) in the last 90 days`,
         customerId: customer.id,
         email,
+        customerSince: "",
       };
     }
 
